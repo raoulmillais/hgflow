@@ -1,0 +1,5 @@
+\.\w+_history$
+~$
+bin\/
+obj\/
+[Dd]eploy\/
