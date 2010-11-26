@@ -74,6 +74,7 @@ cmd_list() {
 		warn ""
 		exit 0
 	fi
+	#$(hg branch --color false)
 	current_branch=$(git branch --no-color | grep '^\* ' | grep -v 'no branch' | sed 's/^* //g')
 	short_names=$(echo "$feature_branches" | sed "s ^$PREFIX  g")
 
@@ -89,14 +90,18 @@ cmd_list() {
 	local branch
 	for branch in $short_names; do
 		local fullname=$PREFIX$branch
+		#local BASE=$(hg debugancestor "$fullname" "$DEVELOP_BRANCH")
 		local base=$(git merge-base "$fullname" "$DEVELOP_BRANCH")
+		# $(hg identify -ir "$DEVELOP_BRANCH")
 		local develop_sha=$(git rev-parse "$DEVELOP_BRANCH")
+		# $(hg identify -ir "$fullname")
 		local branch_sha=$(git rev-parse "$fullname")
 		if [ "$fullname" = "$current_branch" ]; then
 			printf "* "
 		else
 			printf "  "
 		fi
+		# TODO: Update wording to account for lack of ff
 		if flag verbose; then
 			printf "%-${width}s" "$branch"
 			if [ "$branch_sha" = "$develop_sha" ]; then
@@ -137,8 +142,8 @@ expand_nameprefix_arg() {
 	exitcode=$?
 	case $exitcode in
 		0) NAME=$expanded_name
-		   BRANCH=$PREFIX$NAME
-		   ;;
+		BRANCH=$PREFIX$NAME
+		;;
 		*) exit 1 ;;
 	esac
 }
@@ -204,6 +209,7 @@ cmd_start() {
 
 	# update the local repo with remote changes, if asked
 	if flag fetch; then
+		#hg pull -q "$ORIGIN" "$DEVELOP_BRANCH"
 		git fetch -q "$ORIGIN" "$DEVELOP_BRANCH"
 	fi
 
@@ -214,10 +220,12 @@ cmd_start() {
 	fi
 
 	# create branch
+	# if ! hg update "$BRANCH" "$BASE"; then
 	if ! git checkout -b "$BRANCH" "$BASE"; then
 		die "Could not create feature branch '$BRANCH'"
 	fi
 
+	#TODO: Update output copy
 	echo
 	echo "Summary of actions:"
 	echo "- A new branch '$BRANCH' was created, based on '$BASE'"
@@ -230,6 +238,7 @@ cmd_start() {
 }
 
 cmd_finish() {
+	# TODO: Update flag copy
 	DEFINE_boolean fetch false "fetch from $ORIGIN before performing finish" F
 	DEFINE_boolean rebase false "rebase instead of merge" r
 	DEFINE_boolean keep false "keep branch after performing finish" k
@@ -267,6 +276,7 @@ cmd_finish() {
 				rm -f "$DOT_GIT_DIR/.gitflow/MERGE_BASE"
 			fi
 		else
+			# TODO: Update output copy
 			echo
 			echo "Merge conflicts not resolved yet, use:"
 			echo "    git mergetool"
@@ -285,6 +295,7 @@ cmd_finish() {
 	# update local repo with remote changes first, if asked
 	if has "$ORIGIN/$BRANCH" "$(git_remote_branches)"; then
 		if flag fetch; then
+			#hg pull -q "$ORIGIN" "$BRANCH"
 			git fetch -q "$ORIGIN" "$BRANCH"
 		fi
 	fi
@@ -298,7 +309,9 @@ cmd_finish() {
 
 	# if the user wants to rebase, do that first
 	if flag rebase; then
+		# if ! hg flow feature rebase "$NAME" "$DEVELOP_BRANCH"; then
 		if ! git flow feature rebase "$NAME" "$DEVELOP_BRANCH"; then
+			# TODO: Update output copy
 			warn "Finish was aborted due to conflicts during rebase."
 			warn "Please finish the rebase manually now."
 			warn "When finished, re-run:"
@@ -308,14 +321,18 @@ cmd_finish() {
 	fi
 
 	# merge into BASE
+	#hg update "$DEVELOP_BRANCH"
 	git checkout "$DEVELOP_BRANCH"
 	if [ "$(git rev-list -n2 "$DEVELOP_BRANCH..$BRANCH" | wc -l)" -eq 1 ]; then
+		#hg update "$BRANCH"
 		git merge --ff "$BRANCH"
 	else
+		#hg merge "$BRANCH"
 		git merge --no-ff "$BRANCH"
 	fi
 
 	if [ $? -ne 0 ]; then
+		# TODO: Update output copy
 		# oops.. we have a merge conflict!
 		# write the given $DEVELOP_BRANCH to a temporary file (we need it later)
 		mkdir -p "$DOT_GIT_DIR/.gitflow"
@@ -342,11 +359,12 @@ helper_finish_cleanup() {
 
 	# delete branch
 	if flag fetch; then
+		#hg push "$ORIGIN" -r "$BRANCH"
 		git push "$ORIGIN" ":refs/heads/$BRANCH"
 	fi
 	
-	
 	if noflag keep; then
+		#hg commit --close-branch
 		git branch -d "$BRANCH"
 	fi
 
@@ -370,14 +388,18 @@ cmd_publish() {
 	# sanity checks
 	require_clean_working_tree
 	require_branch "$BRANCH"
+	#hg pull -q "$ORIGIN"
 	git fetch -q "$ORIGIN"
 	require_branch_absent "$ORIGIN/$BRANCH"
 
 	# create remote branch
+	#hg push -f "$ORIGIN" "$BRANCH"
 	git push "$ORIGIN" "$BRANCH:refs/heads/$BRANCH"
+	#hg pull -q "$ORIGIN" # Does mercurial need this?
 	git fetch -q "$ORIGIN"
 
 	# configure remote tracking
+	# TODO: Remove this
 	git config "branch.$BRANCH.remote" "$ORIGIN"
 	git config "branch.$BRANCH.merge" "refs/heads/$BRANCH"
 	git checkout "$BRANCH"
@@ -397,10 +419,14 @@ cmd_track() {
 	# sanity checks
 	require_clean_working_tree
 	require_branch_absent "$BRANCH"
+	#hg pull -q "$ORIGIN"
 	git fetch -q "$ORIGIN"
 	require_branch "$ORIGIN/$BRANCH"
 
 	# create tracking branch
+	# TODO: what is the mercurial equivalent?
+	#hg branch "$BRANCH"
+	#hg push -f "$ORIGIN" -r "$BRANCH"
 	git checkout -b "$BRANCH" "$ORIGIN/$BRANCH"
 
 	echo
@@ -415,14 +441,18 @@ cmd_diff() {
 
 	if [ "$NAME" != "" ]; then
 		expand_nameprefix_arg
+		#BASE=$(hg debugancestor "$DEVELOP_BRANCH" "$BRANCH")
 		BASE=$(git merge-base "$DEVELOP_BRANCH" "$BRANCH")
+		#hg diff -r "$BASE" -r "$BRANCH"
 		git diff "$BASE..$BRANCH"
 	else
 		if ! git_current_branch | grep -q "^$PREFIX"; then
 			die "Not on a feature branch. Name one explicitly."
 		fi
 
+		#BASE=$(hg debugancestor "$DEVELOP_BRANCH" tip)
 		BASE=$(git merge-base "$DEVELOP_BRANCH" HEAD)
+		#hg diff "$BASE"
 		git diff "$BASE"
 	fi
 }
@@ -432,6 +462,7 @@ cmd_checkout() {
 
 	if [ "$NAME" != "" ]; then
 		expand_nameprefix_arg
+		#hg update "$BRANCH"
 		git checkout "$BRANCH"
 	else
 		die "Name a feature branch explicitly."
@@ -451,11 +482,13 @@ cmd_rebase() {
 	require_clean_working_tree
 	require_branch "$BRANCH"
 
+	#hg update "$BRANCH"
 	git checkout -q "$BRANCH"
 	local OPTS=
 	if flag interactive; then
 		OPTS="$OPTS -i"
 	fi
+	#hg rebase -d "$DEVELOP_BRANCH"
 	git rebase $OPTS "$DEVELOP_BRANCH"
 }
 
@@ -496,12 +529,16 @@ cmd_pull() {
 
 		# we already have a local branch called like this, so simply pull the
 		# remote changes in
+		#hg fetch -q "$REMOTE" -r "$BRANCH" || die "Failed to pull from remote '$REMOTE'."
 		git pull -q "$REMOTE" "$BRANCH" || die "Failed to pull from remote '$REMOTE'."
 		echo "Pulled $REMOTE's changes into $BRANCH."
 	else
 		# setup the local branch clone for the first time
+		#hg pull -q "$REMOTE" "$BRANCH" || die "Pull failed."
 		git fetch -q "$REMOTE" "$BRANCH" || die "Fetch failed."     # stores in FETCH_HEAD
+		# TODO: Double check if we need to do this in mercurial
 		git branch --no-track "$BRANCH" FETCH_HEAD || die "Branch failed."
+		#hg update -q "$BRANCH" || die "Updating to new local branch failed."
 		git checkout -q "$BRANCH" || die "Checking out new local branch failed."
 		echo "Created local branch $BRANCH based on $REMOTE's $BRANCH."
 	fi
