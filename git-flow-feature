@@ -393,7 +393,7 @@ cmd_publish() {
 	require_branch_absent "$ORIGIN/$BRANCH"
 
 	# create remote branch
-	#hg push -f "$ORIGIN" "$BRANCH"
+	#hg push --new-branch "$ORIGIN" "$BRANCH"
 	git push "$ORIGIN" "$BRANCH:refs/heads/$BRANCH"
 	#hg pull -q "$ORIGIN" # Does mercurial need this?
 	git fetch -q "$ORIGIN"
@@ -426,7 +426,7 @@ cmd_track() {
 	# create tracking branch
 	# TODO: what is the mercurial equivalent?
 	#hg branch "$BRANCH"
-	#hg push -f "$ORIGIN" -r "$BRANCH"
+	#hg push --new-branch "$ORIGIN" -r "$BRANCH"
 	git checkout -b "$BRANCH" "$ORIGIN/$BRANCH"
 
 	echo
