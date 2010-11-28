@@ -46,10 +46,10 @@ die() { warn "$@"; exit 1; }
 
 # argument processing
 last_arg() {
-    if [ $# -ne 0 ]; then
-        shift $(expr $# - 1)
-        echo "$1"
-    fi
+	if [ $# -ne 0 ]; then
+		shift $(expr $# - 1)
+		echo "$1"
+	fi
 }
 
 # set logic
@@ -74,18 +74,30 @@ noflag() { local FLAG; eval FLAG='$FLAGS_'$1; [ $FLAG -ne $FLAGS_TRUE ]; }
 # Git specific common functionality
 #
 
-git_local_branches() { git branch --no-color | sed 's/^[* ] //'; }
-git_remote_branches() { git branch -r --no-color | sed 's/^[* ] //'; }
+git_local_branches() { 
+	#hg branches --color false | sed -r 's/^([^\s]+)/\1/'
+	git branch --no-color | sed 's/^[* ] //'; 
+}
+git_remote_branches() { 
+	#hg branches -R `hg showconfig paths.default` --color false | sed -r 's/^([^\s]+)/\1/'
+	git branch -r --no-color | sed 's/^[* ] //'; 
+}
 git_all_branches() { ( git branch --no-color; git branch -r --no-color) | sed 's/^[* ] //'; }
-git_all_tags() { git tag; }
+git_all_tags() { 
+	#hg tags
+	git tag; 
+}
 
 git_current_branch() {
+	#hg branch --color false
 	git branch --no-color | grep '^\* ' | grep -v 'no branch' | sed 's/^* //g'
 }
 
 git_is_clean_working_tree() {
+	# if ! hg status; then
 	if ! git diff --no-ext-diff --ignore-submodules --quiet --exit-code; then
 		return 1
+	#TODO: 
 	elif ! git diff-index --cached --quiet --ignore-submodules HEAD --; then
 		return 2
 	else
@@ -94,6 +106,7 @@ git_is_clean_working_tree() {
 }
 
 git_repo_is_headless() {
+	#return 0
 	! git rev-parse --quiet --verify HEAD >/dev/null 2>&1
 }
 
@@ -122,9 +135,12 @@ git_tag_exists() {
 # 4    There is no merge base, i.e. the branches have no common ancestors
 #
 git_compare_branches() {
+	#local commit1=$(hg identify --debug "$1" | tail -1)
 	local commit1=$(git rev-parse "$1")
+	#local commit2 =$(hg identify --debug "$2" | tail -1)
 	local commit2=$(git rev-parse "$2")
 	if [ "$commit1" != "$commit2" ]; then
+		#local base=$(hg debugancestor "$commit1" "$commit2")
 		local base=$(git merge-base "$commit1" "$commit2")
 		if [ $? -ne 0 ]; then
 			return 4
@@ -158,16 +174,24 @@ git_is_branch_merged_into() {
 
 # check if this repo has been inited for gitflow
 gitflow_has_master_configured() {
+	#local master=$(hg showconfig hgflow.branch.master)
 	local master=$(git config --get gitflow.branch.master)
 	[ "$master" != "" ] && git_local_branch_exists "$master"
 }
 
 gitflow_has_develop_configured() {
+	#local develop=$(hg showconfig hgflow.branch.develop)
 	local develop=$(git config --get gitflow.branch.develop)
 	[ "$develop" != "" ] && git_local_branch_exists "$develop"
 }
 
 gitflow_has_prefixes_configured() {
+	#[ "$(hg showconfig hgflow.prefix.feature)" != "" ] && \
+	[ "$(hg showconfig hgflow.prefix.release)" != "" ] && \
+	[ "$(hg showconfig hgflow.prefix.hotfix)" != "" ] && \
+	[ "$(hg showconfig hgflow.prefix.support)" != "" ] && \
+	[ "$(hg showconfig hgflow.prefix.versiontag)" != "" ]
+
 	git config --get gitflow.prefix.feature >/dev/null 2>&1     && \
 	git config --get gitflow.prefix.release >/dev/null 2>&1     && \
 	git config --get gitflow.prefix.hotfix >/dev/null 2>&1      && \
@@ -176,18 +200,29 @@ gitflow_has_prefixes_configured() {
 }
 
 gitflow_is_initialized() {
+	#hgflow_has_master_configured					&& \
+	hgflow_has_develop_configured					&& \
+	[ "$(hg showconfig hgflow.branch.master)" !=	   \
+	"$(hg showconfig hg	flow.branch.develop)" ] 	&& \
+	hgflow_has_prefixes_configured
+
 	gitflow_has_master_configured                    && \
 	gitflow_has_develop_configured                   && \
 	[ "$(git config --get gitflow.branch.master)" !=    \
-	  "$(git config --get gitflow.branch.develop)" ] && \
+	"$(git config --get gitflow.branch.develop)" ] && \
 	gitflow_has_prefixes_configured
 }
 
 # loading settings that can be overridden using git config
 gitflow_load_settings() {
+	#TODO: Recurse parents looking for .hg and error if not found
 	export DOT_GIT_DIR=$(git rev-parse --git-dir >/dev/null 2>&1)
+	#export MASTER_BRANCH=$(hg showconfig hgflow.branch.master)
 	export MASTER_BRANCH=$(git config --get gitflow.branch.master)
+	#export DEVELOP_BRANCH=$(hg showconfig hgflow.branch.develop)
 	export DEVELOP_BRANCH=$(git config --get gitflow.branch.develop)
+	#TODO: figure out if we're going to try to use this concept
+	#export ORIGIN=$(hg showconfig paths.default)
 	export ORIGIN=$(git config --get gitflow.origin || echo origin)
 }
 
@@ -245,6 +280,8 @@ gitflow_resolve_nameprefix() {
 #
 
 require_git_repo() {
+	#TODO: Test return codes of status
+	#if ! hg status >/dev/null 2>&1; then
 	if ! git rev-parse --git-dir >/dev/null 2>&1; then
 		die "fatal: Not a git repository"
 	fi
