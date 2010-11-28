@@ -93,9 +93,9 @@ cmd_list() {
 		local fullname=$PREFIX$branch
 		#local BASE=$(hg debugancestor "$fullname" "$DEVELOP_BRANCH")
 		local base=$(git merge-base "$fullname" "$DEVELOP_BRANCH")
-		# $(hg identify -ir "$DEVELOP_BRANCH")
+		# $(hg identify --debug -ir "$DEVELOP_BRANCH" | tail -1)
 		local develop_sha=$(git rev-parse "$DEVELOP_BRANCH")
-		# $(hg identify -ir "$fullname")
+		# $(hg identify --debug -ir "$fullname" | tail -1)
 		local branch_sha=$(git rev-parse "$fullname")
 		if [ "$fullname" = "$current_branch" ]; then
 			printf "* "
